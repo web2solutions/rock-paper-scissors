@@ -1,0 +1,164 @@
+<html>
+    <head>
+        <title>Rock paper scissors</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+        <style>
+            body{
+                font-size: 0.8em;
+            }
+            .statusbar{
+                background-color: #ccc;
+                position: fixed;
+                bottom: 0px;
+                left: 0px;
+                width: 100%;
+                height: 2vh;
+            }
+            button {
+                margin: 0.5em;
+                height: 25vh;
+            }
+        </style>
+        <script>
+            const userId = Math.floor(Math.random() * 100);
+            let socketClient;
+            let connected = false;
+
+            function disableAllButtons () {
+                for(const b of document.getElementsByTagName('button')) {
+                    b.disabled = true;
+                }
+            }
+
+            function enableAllButtons () {
+                for(const b of document.getElementsByTagName('button')) {
+                    b.disabled = false;
+                }
+            }
+
+            function joinGame() {
+                socketClient.send(compose({
+                    command: 'join-game'
+                }));
+            }
+
+            function compose (obj) {
+                const { command, selectedValue } = obj;
+                const msg = {
+                    userId,
+                    command,
+                }
+                if(selectedValue) msg.selectedValue = selectedValue;
+                return JSON.stringify(msg);
+            }
+
+            function log(obj) {
+                document.getElementById('log').innerHTML = `${obj}`
+            }
+
+            function logError(obj) {
+                document.getElementById('log-error').innerHTML = `${obj}`
+            }
+            
+            function sendOption (selectedValue) {
+                log(`You selected ${selectedValue}`);
+                if(!connected){
+                    return alert('You are not playing');
+                }
+                disableAllButtons();
+                socketClient.send(compose({
+                    command: 'select-and-play',
+                    selectedValue
+                }));
+                
+            }
+
+            function startSocket () {
+                socketClient = new WebSocket("ws://localhost:4001");
+
+                socketClient.addEventListener("open", (event) => {
+                    connected = true;
+                    joinGame(socketClient);
+                    enableAllButtons();
+                    log(`Joined as player ${userId}`);
+                    logError('Ready');
+                    document.getElementById('player-info').innerHTML = userId;
+                });
+
+                socketClient.addEventListener("close", (event) => {
+                    connected = false;
+                    disableAllButtons();
+                    logError('Connection closed! Please reload the game');
+                    document.getElementById('again').style.display = 'block';
+                    document.getElementById('reload').disabled = false;
+                    document.getElementById('options').style.display = 'none';
+                });
+
+                socketClient.addEventListener("message", (event) => {
+                    const response = JSON.parse(event.data);
+                    const { command, winner, message } = JSON.parse(event.data);
+                    if(command === 'error') {
+                        return alert(message);
+                    }
+                    if(command === 'info') {
+                        log(message);
+                        return 
+                    }
+                    if(!winner) {
+                        log('There is no winner');
+                        return;
+                    }
+                    if(''+winner.userId === ''+userId){
+                        log('You win');
+                    } else {
+                        log(`You lose. The winner is ${winner.userId}`);
+                    }
+                });
+            }
+
+            window.addEventListener('load', () => {
+                startSocket();
+            })
+        </script>
+    </head>
+    <body>
+        <div class="container-fluid pt-3">
+            <div class="container" id="options">
+                <div class="row">
+                    <button type="button" class="btn btn-primary btn-lg btn-block" onclick="sendOption('rock')" disabled=true>Rock</button>
+                </div>
+                <div class="row">
+                    <button type="button" class="btn btn-warning btn-lg btn-block" onclick="sendOption('Paper')" disabled=true>Paper</button>
+                </div>
+                <div class="row">
+                    <button type="button" class="btn btn-danger btn-lg btn-block" onclick="sendOption('Iscissors')" disabled=true>Iscissors</button>
+                </div>
+            </div>
+            <div class="container" id="again" style="display: none;">
+                <div class="row">
+                    <button type="button" class="btn btn-success btn-lg btn-block" id="reload" onclick="location.reload()">Play again</button>
+                </div>
+            </div>
+            <div class="row statusbar">
+                <div class="col-md-1">
+                    <b>Info:</b>
+                </div>
+                <div class="col-md-5">
+                    <div id="log"></div>
+                </div>
+                <div class="col-md-1">
+                    <b>Connection:</b>
+                </div>
+                <div class="col-md-3">
+                    <div id="log-error">Connecting ...</div>
+                </div>
+                <div class="col-md-1">
+                    <b>Player:</b>
+                </div>
+                <div class="col-md-1">
+                    <div id="player-info"></div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

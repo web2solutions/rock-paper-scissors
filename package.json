@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "postinstall": "cd frontend && npm install && cd ../backend && npm install && cd .. && npm start",
+    "start": "concurrently \"cd backend && npm start\" \"cd frontend && npm start\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
